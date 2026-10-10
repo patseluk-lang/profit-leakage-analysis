@@ -28,18 +28,14 @@ from datetime import date, timedelta
 
 RNG = np.random.default_rng(42)  # reproducible
 
-# ---------------------------------------------------------------------------
 # 1. TIME RANGE  (three full years)
-# ---------------------------------------------------------------------------
 START = date(2023, 1, 1)
 END   = date(2025, 12, 31)
 N_DAYS = (END - START).days + 1
 ALL_DAYS = [START + timedelta(days=i) for i in range(N_DAYS)]
 
-# ---------------------------------------------------------------------------
 # 2. INFLATION  - monthly multiplier on raw-material cost.
 #    ~29% per year compounding, applied to COST only (retail price lags -> see below)
-# ---------------------------------------------------------------------------
 def cost_inflation(d: date) -> float:
     """Raw-material cost multiplier relative to Jan 2023 (=1.0).
     ~18% annual on cost — real market saw ~29% on some cuts, but averaged
@@ -55,9 +51,7 @@ def price_inflation(d: date) -> float:
     monthly_rate = 1.12 ** (1 / 12)
     return monthly_rate ** months_elapsed
 
-# ---------------------------------------------------------------------------
 # 3. SEASONALITY  - multiplier by month for different product families
-# ---------------------------------------------------------------------------
 # Grill / sandwiches / ice cream / cold drinks: summer peak
 SUMMER = {1:0.35, 2:0.40, 3:0.55, 4:0.80, 5:1.15, 6:1.55,
           7:1.75, 8:1.70, 9:1.20, 10:0.80, 11:0.50, 12:0.40}
@@ -68,10 +62,8 @@ COFFEE = {1:1.30, 2:1.25, 3:1.15, 4:1.00, 5:0.90, 6:0.80,
 CORE   = {1:1.05, 2:0.95, 3:1.00, 4:1.00, 5:1.00, 6:1.00,
           7:0.95, 8:0.95, 9:1.00, 10:1.05, 11:1.10, 12:1.25}
 
-# ---------------------------------------------------------------------------
 # 4. GROWTH  - overall business growth over three years.
 #    Growth is driven MOSTLY by wholesale (that's the trap in the story).
-# ---------------------------------------------------------------------------
 def year_growth(d: date, channel: str) -> float:
     y = d.year - 2023  # 0,1,2
     if channel == "Wholesale":
@@ -82,11 +74,9 @@ def year_growth(d: date, channel: str) -> float:
         return 1.0 + 0.15 * y      # kiosk moderate
     return 1.0
 
-# ---------------------------------------------------------------------------
 # 5. PRODUCT CATALOGUE
 #    base_price / base_cost are Jan-2023 UAH per unit (kg for meat, piece otherwise).
 #    'family' drives seasonality; 'trap'=True marks deliberate low-margin sellers.
-# ---------------------------------------------------------------------------
 # Core meat line (from real технологічні карти, names in EN for the dataset)
 CORE_PRODUCTS = [
     # name,                         base_price, base_cost, family, trap
@@ -119,9 +109,7 @@ KIOSK_RESALE = [
     ("Cold Drinks",                       40,      22,   "summer", False),  # resale, thinner
 ]
 
-# ---------------------------------------------------------------------------
 # 6. CHANNEL CONFIG
-# ---------------------------------------------------------------------------
 # Wholesale: bulk kg of core line + buns, discounted price, manager's cut lowers margin
 # Venue: full price core line
 # Kiosk: grill + resale, full price, seasonal
@@ -158,7 +146,7 @@ for d in ALL_DAYS:
     ci = cost_inflation(d)
     pi = price_inflation(d)
 
-    # ---------------- VENUE ----------------
+    # VENUE
     n_venue = RNG.poisson(25 * CORE[d.month] * year_growth(d, "Venue"))
     for _ in range(n_venue):
         name, bp, bc, fam, trap = CORE_PRODUCTS[RNG.integers(len(CORE_PRODUCTS))]
@@ -170,7 +158,7 @@ for d in ALL_DAYS:
                         fam, qty, round(price,2), round(cost,2), disc, 0])
         order_id += 1
 
-    # ---------------- WHOLESALE ----------------
+    # WHOLESALE
     n_ws = RNG.poisson(10 * CORE[d.month] * year_growth(d, "Wholesale"))
     for _ in range(n_ws):
         name, bp, bc, fam, trap = CORE_PRODUCTS[RNG.integers(len(CORE_PRODUCTS))]
@@ -189,7 +177,7 @@ for d in ALL_DAYS:
                             "core", bun_qty, round(8*pi,2), round(3.5*ci,2), 0, 0])
             order_id += 1
 
-    # ---------------- KIOSK ----------------
+    # KIOSK
     kiosk_base = 50  # up to ~50 orders/day in peak
     n_kiosk = RNG.poisson(kiosk_base * SUMMER[d.month] * 0.7 * year_growth(d, "Kiosk"))
     for _ in range(n_kiosk):
@@ -209,7 +197,7 @@ for d in ALL_DAYS:
                         fam, qty, round(price,2), round(cost,2), 0, 0])
         order_id += 1
 
-    # ---------------- SPOILAGE (write-offs) ----------------
+    # SPOILAGE (write-offs)
     # perishable core + grill: some unsold units written off, more in low-season
     # recorded as qty sold=0 style rows with a spoilage flag -> negative profit
     spoil_events = RNG.poisson(2.5)
@@ -227,9 +215,7 @@ df = pd.DataFrame(records, columns=[
     "order_id", "order_date", "channel", "product", "family",
     "quantity", "unit_price", "unit_cost", "discount", "spoiled"])
 
-# ---------------------------------------------------------------------------
 # 7. INJECT ADDITIONAL DIRT
-# ---------------------------------------------------------------------------
 # 7a. duplicate rows (~1%)
 dupes = df.sample(frac=0.01, random_state=1)
 df = pd.concat([df, dupes], ignore_index=True)

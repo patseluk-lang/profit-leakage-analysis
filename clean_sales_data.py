@@ -30,9 +30,7 @@ df = pd.read_csv(SRC)
 start_rows = len(df)
 print(f"Loaded: {start_rows:,} rows")
 
-# ---------------------------------------------------------------------------
 # 1. NORMALISE PRODUCT NAMES
-# ---------------------------------------------------------------------------
 def clean_name(x):
     if pd.isna(x):
         return x
@@ -47,16 +45,12 @@ df["product"] = df["product"].apply(clean_name)
 n_products = df["product"].nunique()
 print(f"Product name variants after cleaning: {n_products}")
 
-# ---------------------------------------------------------------------------
 # 2. REMOVE FULL DUPLICATES
-# ---------------------------------------------------------------------------
 before = len(df)
 df = df.drop_duplicates()
 print(f"Removed {before - len(df):,} duplicate rows")
 
-# ---------------------------------------------------------------------------
 # 3. MISSING VALUES
-# ---------------------------------------------------------------------------
 # 3a. discount NaN -> 0
 df["discount"] = df["discount"].fillna(0)
 
@@ -72,9 +66,7 @@ before = len(df)
 df = df.dropna(subset=["quantity"])
 print(f"Dropped {before - len(df):,} rows with missing quantity")
 
-# ---------------------------------------------------------------------------
 # 4. NORMALISE DATES  (three formats -> ISO yyyy-mm-dd)
-# ---------------------------------------------------------------------------
 def parse_date(s):
     s = str(s).strip()
     for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%m/%d/%Y"):
@@ -90,17 +82,13 @@ print(f"Unparseable dates: {bad_dates}")
 df = df.dropna(subset=["order_date"])
 df["order_date"] = df["order_date"].dt.strftime("%Y-%m-%d")
 
-# ---------------------------------------------------------------------------
 # 5. NUMERIC COLUMNS - ensure proper types
-# ---------------------------------------------------------------------------
 for col in ["quantity", "unit_price", "unit_cost", "discount"]:
     df[col] = pd.to_numeric(df[col], errors="coerce")
 
 df["spoiled"] = df["spoiled"].astype(int)
 
-# ---------------------------------------------------------------------------
 # SAVE
-# ---------------------------------------------------------------------------
 df = df.reset_index(drop=True)
 df.to_csv(OUT, index=False, encoding="utf-8")
 
